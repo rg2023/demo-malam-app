@@ -109,7 +109,6 @@ jobs:
           helm upgrade --install demoapp ./demoapp \
             --set image.tag=latest \
          
-
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
