@@ -65,12 +65,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get Version
+      - name: Get Version from last PR
         id: version
-        run: |
-          VERSION="1.0.${{ github.run_number }}"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "גרסה: $VERSION"
+        env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+         run: |
+         PR_TITLE=$(gh pr list --state merged --base ${{ github.ref_name }} --limit 1 --json title --jq '.[0].title')
+         echo "כותרת PR: $PR_TITLE"
+         VERSION=$(echo "$PR_TITLE" | grep -oP '\d+\.\d+\.\d+' | head -1)
+         if [ -z "$VERSION" ]; then
+         VERSION="1.0.${{ github.run_number }}"
+         fi
+         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+         echo "גרסה: $VERSION"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
