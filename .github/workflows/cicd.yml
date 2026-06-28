@@ -13,9 +13,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  # =============================
-  # Job 1 — Build (רק ב-PR)
-  # =============================
   build:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -53,9 +50,8 @@ jobs:
           docker push $IMAGE:$VERSION
           docker push $IMAGE:latest
 
-  # =============================
-  # Job 2 — Deploy (רק ב-push/merge)
-  # =============================
+  
+  
   deploy:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
