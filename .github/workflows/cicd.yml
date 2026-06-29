@@ -53,7 +53,7 @@ jobs:
           VERSION="v${{ steps.version.outputs.VERSION }}"
           docker build -t $IMAGE:$VERSION -t $IMAGE:$ENV .
           docker push $IMAGE:$VERSION
-          docker push $IMAGE:$ENV
+          docker push $IMAGE:latest
 
   deploy:
     runs-on: ubuntu-latest
