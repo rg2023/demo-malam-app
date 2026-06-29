@@ -43,12 +43,17 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            ENV="prod"
+          else
+            ENV="dev"
+          fi
           gcloud auth configure-docker me-west1-docker.pkg.dev
-          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact/demoapp"
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-$ENV/demoapp"
           VERSION="v${{ steps.version.outputs.VERSION }}"
-          docker build -t $IMAGE:$VERSION -t $IMAGE:latest .
+          docker build -t $IMAGE:$VERSION -t $IMAGE:$ENV .
           docker push $IMAGE:$VERSION
-          docker push $IMAGE:latest
+          docker push $IMAGE:$ENV
 
   
 
@@ -108,17 +113,17 @@ jobs:
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/dev'
         run: |
-          # אנו אומרים ל-Helm לפרוס ל-namespace שנקרא dev, ואם הוא לא קיים - ליצור אותו!
           helm upgrade --install demoapp ./demoapp \
             --namespace dev \
             --create-namespace \
-            --set image.tag=latest
+            --set image.repository="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-dev/demoapp" \
+            --set image.tag=dev
 
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
-          # אנו אומרים ל-Helm לפרוס ל-namespace שנקרא prod, ואם הוא לא קיים - ליצור אותו!
           helm upgrade --install demoapp ./demoapp \
             --namespace prod \
             --create-namespace \
+            --set image.repository="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-prod/demoapp" \
             --set image.tag=v${{ steps.version.outputs.VERSION }}
