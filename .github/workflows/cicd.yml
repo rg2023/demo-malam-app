@@ -117,7 +117,6 @@ jobs:
             --namespace dev \
             --create-namespace \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
-            --set ingress.annotations."cloud\.google\.com/neg"='{"ingress": true}' \
             --set ingress.hosts[0].host="dev.demoapp.com" \
             --set image.tag=dev
 
@@ -128,6 +127,5 @@ jobs:
             --namespace prod \
             --create-namespace \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-prod" \
-            --set ingress.annotations."cloud\.google\.com/neg"='{"ingress": false}' \
             --set ingress.hosts[0].host="demoapp.com" \
             --set image.tag=v${{ steps.version.outputs.VERSION }}
