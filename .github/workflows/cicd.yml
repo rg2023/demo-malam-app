@@ -51,9 +51,9 @@ jobs:
           gcloud auth configure-docker me-west1-docker.pkg.dev
           IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-${ENV}/demoapp"
           VERSION="v${{ steps.version.outputs.VERSION }}"
-          docker build -t $IMAGE:$VERSION -t $IMAGE:$ENV .
+          docker build -t $IMAGE:$VERSION -t $IMAGE:latest  .
           docker push $IMAGE:$VERSION
-          docker push $IMAGE:$ENV
+          docker push $IMAGE:latest
 
   deploy:
     runs-on: ubuntu-latest
