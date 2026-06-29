@@ -116,7 +116,9 @@ jobs:
           helm upgrade --install demoapp ./demoapp \
             --namespace dev \
             --create-namespace \
-            --set image.repository="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-dev/demoapp" \
+            --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
+            --set ingress.annotations."cloud\.google\.com/neg"='{"ingress": true}' \
+            --set ingress.hosts[0].host="dev.demoapp.com" \
             --set image.tag=dev
 
       - name: Deploy to PROD
@@ -125,5 +127,7 @@ jobs:
           helm upgrade --install demoapp ./demoapp \
             --namespace prod \
             --create-namespace \
-            --set image.repository="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-prod/demoapp" \
+            --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-prod" \
+            --set ingress.annotations."cloud\.google\.com/neg"='{"ingress": false}' \
+            --set ingress.hosts[0].host="demoapp.com" \
             --set image.tag=v${{ steps.version.outputs.VERSION }}
