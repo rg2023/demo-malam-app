@@ -120,7 +120,7 @@ jobs:
             --namespace dev \
             --create-namespace \
             --set image.repository="${IMAGE}" \
-            --set image.tag=dev \
+            --set image.tag="v${{ steps.version.outputs.VERSION }}" \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
             --set ingress.hosts[0].host="dev.demoapp.com" \
             --set ingress.hosts[0].paths[0].path="/" \
