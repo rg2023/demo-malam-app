@@ -55,8 +55,6 @@ jobs:
           docker push $IMAGE:$VERSION
           docker push $IMAGE:$ENV
 
-  
-
   deploy:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -117,7 +115,8 @@ jobs:
             --namespace dev \
             --create-namespace \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
-            --set ingress.hosts[0].host="dev.demoapp.com" \
+            --set ingress.annotations."networking\.gke\.io/managed-certificates"="demoapp-cert-dev" \
+            --set "ingress.hosts[0].host=dev.demoapp.com" \
             --set image.tag=dev
 
       - name: Deploy to PROD
@@ -127,5 +126,6 @@ jobs:
             --namespace prod \
             --create-namespace \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-prod" \
-            --set ingress.hosts[0].host="demoapp.com" \
+            --set ingress.annotations."networking\.gke\.io/managed-certificates"="demoapp-cert-prod" \
+            --set "ingress.hosts[0].host=demoapp.com" \
             --set image.tag=v${{ steps.version.outputs.VERSION }}
