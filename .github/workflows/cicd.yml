@@ -94,7 +94,6 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           TAG="v${{ steps.version.outputs.VERSION }}"
-          # מונע כישלון אם התג כבר קיים
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping."
           else
