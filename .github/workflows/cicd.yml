@@ -43,13 +43,13 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
+          if [ "${{ github.base_ref }}" = "main" ]; then
             ENV="prod"
           else
             ENV="dev"
           fi
           gcloud auth configure-docker me-west1-docker.pkg.dev
-          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-$ENV/demoapp"
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-${ENV}/demoapp"
           VERSION="v${{ steps.version.outputs.VERSION }}"
           docker build -t $IMAGE:$VERSION -t $IMAGE:$ENV .
           docker push $IMAGE:$VERSION
@@ -93,9 +93,14 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag -a "v${{ steps.version.outputs.VERSION }}" \
-            -m "Release v${{ steps.version.outputs.VERSION }}"
-          git push origin "v${{ steps.version.outputs.VERSION }}"
+          TAG="v${{ steps.version.outputs.VERSION }}"
+          # מונע כישלון אם התג כבר קיים
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
 
       - name: Connect to cluster
         uses: google-github-actions/get-gke-credentials@v2
@@ -111,21 +116,28 @@ jobs:
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/dev'
         run: |
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-dev/demoapp"
           helm upgrade --install demoapp ./demoapp \
             --namespace dev \
             --create-namespace \
+            --set image.repository="${IMAGE}" \
+            --set image.tag=dev \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
-            --set ingress.annotations."networking\.gke\.io/managed-certificates"="demoapp-cert-dev" \
-            --set "ingress.hosts[0].host=dev.demoapp.com" \
-            --set image.tag=dev
+            --set ingress.hosts[0].host="dev.demoapp.com" \
+            --set ingress.hosts[0].paths[0].path="/" \
+            --set ingress.hosts[0].paths[0].pathType="Prefix"
 
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-prod/demoapp"
           helm upgrade --install demoapp ./demoapp \
             --namespace prod \
             --create-namespace \
+            --set image.repository="${IMAGE}" \
+            --set image.tag="v${{ steps.version.outputs.VERSION }}" \
             --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-prod" \
             --set ingress.annotations."networking\.gke\.io/managed-certificates"="demoapp-cert-prod" \
-            --set "ingress.hosts[0].host=demoapp.com" \
-            --set image.tag=v${{ steps.version.outputs.VERSION }}
+            --set ingress.hosts[0].host="demoapp.com" \
+            --set ingress.hosts[0].paths[0].path="/" \
+            --set ingress.hosts[0].paths[0].pathType="Prefix"
