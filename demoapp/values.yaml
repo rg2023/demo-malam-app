@@ -64,10 +64,10 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: "gce" 
     cloud.google.com/neg: '{"ingress": true}'
-    kubernetes.io/ingress.global-static-ip-name: "demoapp-ip"
-  #networking.gke.io/managed-certificates: "demoapp-cert"
+    #kubernetes.io/ingress.global-static-ip-name: "demoapp-ip"
+    #networking.gke.io/managed-certificates: "demoapp-cert"
     cloud.google.com/app-protocols: '{"http":"HTTP"}'
-    compute.googleapis.com/healthchecks: '{"checkIntervalSec": 15, "port": 3000, "requestPath": "/"}'
+    # compute.googleapis.com/healthchecks: '{"checkIntervalSec": 15, "port": 3000, "requestPath": "/"}'
   hosts:
     - host: demoapp.com
       paths:
