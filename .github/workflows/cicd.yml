@@ -1,0 +1,142 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Version
+        id: version
+        run: |
+          VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            VERSION="1.0.${{ github.run_number }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "גרסה: $VERSION"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Build and Push Docker Image
+        run: |
+          if [ "${{ github.base_ref }}" = "main" ]; then
+            ENV="prod"
+          else
+            ENV="dev"
+          fi
+          gcloud auth configure-docker me-west1-docker.pkg.dev
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-${ENV}/demoapp"
+          VERSION="v${{ steps.version.outputs.VERSION }}"
+          docker build -t $IMAGE:$VERSION -t $IMAGE:latest  .
+          docker push $IMAGE:$VERSION
+          docker push $IMAGE:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Version from last PR
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_TITLE=$(gh pr list --state merged --base ${{ github.ref_name }} --limit 1 --json title --jq '.[0].title')
+          echo "כותרת PR: $PR_TITLE"
+          VERSION=$(echo "$PR_TITLE" | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            VERSION="1.0.${{ github.run_number }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "גרסה: $VERSION"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Create Git Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          TAG="v${{ steps.version.outputs.VERSION }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Connect to cluster
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ github.ref == 'refs/heads/main' && 'demo-cluster-prod' || 'demo-cluster-dev' }}
+          location: me-west1
+          use_dns_based_endpoint: 'true'
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Deploy to DEV
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-dev/demoapp"
+          helm upgrade --install demoapp ./demoapp \
+            --namespace dev \
+            --create-namespace \
+            --set image.repository="${IMAGE}" \
+            --set image.tag=dev \
+            --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-dev" \
+            --set ingress.hosts[0].host="dev.demoapp.com" \
+            --set ingress.hosts[0].paths[0].path="/" \
+            --set ingress.hosts[0].paths[0].pathType="Prefix"
+
+      - name: Deploy to PROD
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="me-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/demo-artifact-prod/demoapp"
+          helm upgrade --install demoapp ./demoapp \
+            --namespace prod \
+            --create-namespace \
+            --set image.repository="${IMAGE}" \
+            --set image.tag="v${{ steps.version.outputs.VERSION }}" \
+            --set ingress.annotations."kubernetes\.io/ingress\.global-static-ip-name"="demoapp-ip-prod" \
+            --set ingress.annotations."networking\.gke\.io/managed-certificates"="demoapp-cert-prod" \
+            --set ingress.hosts[0].host="demoapp.com" \
+            --set ingress.hosts[0].paths[0].path="/" \
+            --set ingress.hosts[0].paths[0].pathType="Prefix"
