@@ -51,7 +51,7 @@ jobs:
           docker push $IMAGE:latest
 
   
-  
+
   deploy:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -97,7 +97,7 @@ jobs:
       - name: Connect to cluster
         uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: demo-cluster
+          cluster_name: ${{ github.ref == 'refs/heads/main' && 'demo-cluster-prod' || 'demo-cluster-dev' }}
           location: me-west1
           use_dns_based_endpoint: 'true'
 
@@ -108,11 +108,17 @@ jobs:
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/dev'
         run: |
+          # אנו אומרים ל-Helm לפרוס ל-namespace שנקרא dev, ואם הוא לא קיים - ליצור אותו!
           helm upgrade --install demoapp ./demoapp \
+            --namespace dev \
+            --create-namespace \
             --set image.tag=latest
 
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
+          # אנו אומרים ל-Helm לפרוס ל-namespace שנקרא prod, ואם הוא לא קיים - ליצור אותו!
           helm upgrade --install demoapp ./demoapp \
+            --namespace prod \
+            --create-namespace \
             --set image.tag=v${{ steps.version.outputs.VERSION }}
